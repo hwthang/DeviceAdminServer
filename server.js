@@ -11,15 +11,13 @@ const io = new Server(server, {
     origin: "*",
     methods: ["GET","POST"]
   },
-  transports: ['websocket', 'polling'] // cho phép websocket
+  transports: ['websocket', 'polling']
 });
 
-// Middleware
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
-app.use(morgan('dev')); // Log HTTP requests
+app.use(morgan('dev'));
 
-// Routes
 app.get('/', (req, res) => {
   res.send('Hello World! Server is running.');
 });
@@ -28,31 +26,30 @@ app.get('/', (req, res) => {
 io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);
 
-  // Lắng nghe client join room
+  // Client join room
   socket.on('join', (room) => {
     socket.join(room);
     console.log(`Client ${socket.id} joined room: ${room}`);
   });
 
-  // Nhận message từ room "location"
+  // Nhận location từ client
   socket.on('location', (data) => {
-    console.log(`Location message from ${socket.id}:`, data);
-    // Bạn có thể xử lý dữ liệu location ở đây
-    // Ví dụ gửi thông báo đến room "command" nếu cần
+    console.log(`Location from ${socket.id}:`, data);
+    // Có thể gửi thông báo tới command room nếu muốn
+    // io.to('command').emit('message', { type: 'locationUpdate', data });
   });
-
-  // Nhận message từ room "command" (client gửi lên)
-  socket.on('command', (data) => {
-    console.log(`Command message from ${socket.id}:`, data);
-    // Gửi lại message cho các client trong room "command"
-    
-  });
-
-  io.to('command').emit('lock');
 
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
   });
+});
+
+// API để server gửi message tới room "command"
+app.post('/send-command', (req, res) => {
+
+  io.to('command').emit('lock');
+  console.log(`Server sent message to command room: ${message}`);
+  res.send({ status: 'Message sent to command room' });
 });
 
 // Start server
