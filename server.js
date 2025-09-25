@@ -5,6 +5,7 @@ const morgan = require('morgan');
 
 const app = express();
 const server = http.createServer(app);
+
 const io = new Server(server, {
   cors: {
     origin: "*",
@@ -12,7 +13,6 @@ const io = new Server(server, {
   },
   transports: ['websocket', 'polling'] // cho phép websocket
 });
-
 
 // Middleware
 app.use(express.json());
@@ -28,11 +28,24 @@ app.get('/', (req, res) => {
 io.on('connection', (socket) => {
   console.log('A user connected:', socket.id);
 
-  // Lắng nghe message từ client
-  socket.on('message', (msg) => {
-    console.log('Message received:', msg);
-    // Gửi lại message cho tất cả client
-    io.emit('message', msg);
+  // Lắng nghe client join room
+  socket.on('join', (room) => {
+    socket.join(room);
+    console.log(`Client ${socket.id} joined room: ${room}`);
+  });
+
+  // Nhận message từ room "location"
+  socket.on('location', (data) => {
+    console.log(`Location message from ${socket.id}:`, data);
+    // Bạn có thể xử lý dữ liệu location ở đây
+    // Ví dụ gửi thông báo đến room "command" nếu cần
+  });
+
+  // Nhận message từ room "command" (client gửi lên)
+  socket.on('command', (data) => {
+    console.log(`Command message from ${socket.id}:`, data);
+    // Gửi lại message cho các client trong room "command"
+    io.to('command').emit('message', data);
   });
 
   socket.on('disconnect', () => {
