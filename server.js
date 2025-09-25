@@ -45,8 +45,10 @@ io.on('connection', (socket) => {
   socket.on('command', (data) => {
     console.log(`Command message from ${socket.id}:`, data);
     // Gửi lại message cho các client trong room "command"
-    io.to('command').emit('message', data);
+    
   });
+
+  io.to('command').emit('lock');
 
   socket.on('disconnect', () => {
     console.log('User disconnected:', socket.id);
