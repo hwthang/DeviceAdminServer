@@ -47,7 +47,7 @@ io.on("connection", (socket) => {
 // Gửi command từ REST API
 app.post("/send-command", (req, res) => {
   const { message } = req.body;
-  io.to("command").emit("command", message);
+  io.emit("command", message);
   console.log(`📤 Server sent command to room "command": ${message}`);
   res.send({ status: "Message sent to command room" });
 });
