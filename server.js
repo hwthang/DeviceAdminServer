@@ -7,13 +7,13 @@ const cors = require("cors");
 const app = express();
 const server = http.createServer(app);
 
-// Middleware
+// ---------------- MIDDLEWARE ----------------
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan("dev"));
 app.use(cors({ origin: "*", methods: ["GET", "POST"] }));
 
-// Socket.IO setup
+// ---------------- SOCKET.IO ----------------
 const io = new Server(server, {
   cors: {
     origin: "*",
@@ -22,34 +22,77 @@ const io = new Server(server, {
   transports: ["websocket", "polling"],
 });
 
-// Routes
+// ---------------- DEVICE STORAGE ----------------
+// Bộ nhớ tạm để lưu danh sách thiết bị
+let devices = []; // { deviceId, info, lastSeen, location }
+
+// Hàm đăng ký hoặc cập nhật thiết bị
+function registerDevice(payload) {
+  const { androidId, ...info } = payload;
+  let device = devices.find((d) => d.deviceId === androidId);
+
+  if (device) {
+    device.info = info;
+    device.lastSeen = new Date();
+  } else {
+    device = {
+      deviceId: androidId,
+      info,
+      lastSeen: new Date(),
+      location: null,
+    };
+    devices.push(device);
+  }
+  return device;
+}
+
+// Hàm cập nhật vị trí
+function updateLocation(deviceId, lat, lng) {
+  let device = devices.find((d) => d.deviceId === deviceId);
+  if (device) {
+    device.location = { lat, lng, updatedAt: new Date() };
+    device.lastSeen = new Date();
+  }
+  return device;
+}
+
+// ---------------- ROUTES ----------------
 app.get("/", (req, res) => {
   res.send("✅ Server is running with Socket.IO");
 });
 
-// ---------------- SOCKET.IO HANDLERS ----------------
-io.on("connection", (socket) => {
-  console.log("🔌 User connected:", socket.id);
-
-  // Nhận sự kiện cập nhật vị trí
-  socket.on("location_update", (lat, lng) => {
-    console.log(`📍 Location from ${socket.id}: ${lat}, ${lng}`);
-  });
-
-  // Ngắt kết nối
-  socket.on("disconnect", () => {
-    console.log("❌ User disconnected:", socket.id);
-  });
+// API đăng ký thiết bị
+app.post("/register-device", (req, res) => {
+  const device = registerDevice(req.body);
+  res.json({ success: true, device });
 });
 
-// ---------------- HTTP API ----------------
+// API lấy danh sách thiết bị
+app.get("/devices", (req, res) => {
+  res.json(devices);
+});
 
-// Gửi command từ REST API
+// API gửi command tới client
 app.post("/send-command", (req, res) => {
   const { message } = req.body;
   io.emit("command", message);
-  console.log(`📤 Server sent command to room "command": ${message}`);
-  res.send({ status: "Message sent to command room" });
+  console.log(`📤 Server sent command: ${message}`);
+  res.send({ status: "Message sent" });
+});
+
+// ---------------- SOCKET HANDLERS ----------------
+io.on("connection", (socket) => {
+  console.log("🔌 User connected:", socket.id);
+
+  // Nhận sự kiện cập nhật vị trí từ client
+  socket.on("location_update", ({ deviceId, lat, lng }) => {
+    const device = updateLocation(deviceId, lat, lng);
+    console.log(`📍 Location from ${deviceId}: ${lat}, ${lng}`);
+  });
+
+  socket.on("disconnect", () => {
+    console.log("❌ User disconnected:", socket.id);
+  });
 });
 
 // ---------------- START SERVER ----------------
