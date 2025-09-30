@@ -56,29 +56,6 @@ function updateLocation(deviceId, lat, lng) {
   return device;
 }
 
-// ---------------- ROUTES ----------------
-app.get("/", (req, res) => {
-  res.send("✅ Server is running with Socket.IO");
-});
-
-// API đăng ký thiết bị
-app.post("/register-device", (req, res) => {
-  const device = registerDevice(req.body);
-  res.json({ success: true, device });
-});
-
-// API lấy danh sách thiết bị
-app.get("/devices", (req, res) => {
-  res.json(devices);
-});
-
-// API gửi command tới client
-app.post("/send-command", (req, res) => {
-  const { message } = req.body;
-  io.emit("command", message);
-  console.log(`📤 Server sent command: ${message}`);
-  res.send({ status: "Message sent" });
-});
 
 // ---------------- SOCKET HANDLERS ----------------
 io.on("connection", (socket) => {
@@ -109,6 +86,64 @@ io.on("connection", (socket) => {
     console.log("❌ User disconnected:", socket.id);
   });
 });
+
+// ---------------- ROUTES ----------------
+app.get("/", (req, res) => {
+  res.send("✅ Server is running with Socket.IO");
+});
+
+// API đăng ký thiết bị
+app.post("/register-device", (req, res) => {
+  const device = registerDevice(req.body);
+  res.json({ success: true, device });
+});
+
+// API lấy danh sách thiết bị
+app.get("/devices", (req, res) => {
+  res.json(devices);
+});
+
+// API gửi command tới client
+app.post("/send-command", (req, res) => {
+  const { message } = req.body;
+  io.emit("command", message);
+  console.log(`📤 Server sent command: ${message}`);
+  res.send({ status: "Message sent" });
+});
+
+// API lấy vị trí thiết bị và emit socket yêu cầu device gửi location
+app.get("/get-location/:deviceId", async (req, res) => {
+  const { deviceId } = req.params;
+  const device = devices.find((d) => d.deviceId === deviceId);
+
+  if (!device) {
+    return res.status(404).json({ success: false, message: "Device not found" });
+  }
+
+  // Tạo promise để chờ thiết bị gửi location
+  const waitForLocation = new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error("Timeout waiting for device location"));
+    }, 5000); // 5s timeout
+
+    // Tạm thời lưu callback vào device object
+    device.locationCallback = (location) => {
+      clearTimeout(timeout);
+      resolve(location);
+    };
+
+    // Emit event yêu cầu device gửi location
+    io.emit("command", 'getLocation');
+  });
+
+  try {
+    const location = await waitForLocation;
+    res.json({ success: true, deviceId, location });
+  } catch (err) {
+    res.status(504).json({ success: false, message: err.message });
+  }
+});
+
 
 // ---------------- START SERVER ----------------
 const PORT = process.env.PORT || 3000;
