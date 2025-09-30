@@ -81,13 +81,24 @@ app.post("/send-command", (req, res) => {
 });
 
 // ---------------- SOCKET HANDLERS ----------------
+// ---------------- SOCKET HANDLERS ----------------
 io.on("connection", (socket) => {
   console.log("🔌 User connected:", socket.id);
 
-  // Nhận sự kiện cập nhật vị trí từ client
-  socket.on("location_update", ({ deviceId, lat, lng }) => {
-    const device = updateLocation(deviceId, lat, lng);
-    console.log(`📍 Location from ${deviceId}: ${lat}, ${lng}`);
+  socket.on("location_update", (data) => {
+    const { deviceId, lat, lng, error } = data;
+
+    if (error) {
+      console.warn(`⚠️ Device ${deviceId} error: ${error}`);
+      return;
+    }
+
+    if (typeof lat === "number" && typeof lng === "number") {
+      const device = updateLocation(deviceId, lat, lng);
+      console.log(`📍 Location update from ${deviceId}:`, device.location);
+    } else {
+      console.warn(`⚠️ Invalid location payload from ${deviceId}:`, data);
+    }
   });
 
   socket.on("disconnect", () => {
