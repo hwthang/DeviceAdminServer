@@ -81,25 +81,29 @@ app.post("/send-command", (req, res) => {
 });
 
 // ---------------- SOCKET HANDLERS ----------------
-// ---------------- SOCKET HANDLERS ----------------
 io.on("connection", (socket) => {
   console.log("🔌 User connected:", socket.id);
 
-  socket.on("location_update", (data) => {
-    const { deviceId, lat, lng, error } = data;
+ socket.on("location_update", (data) => {
+  const { deviceId, error } = data;
 
-    if (error) {
-      console.warn(`⚠️ Device ${deviceId} error: ${error}`);
-      return;
-    }
+  if (error) {
+    console.warn(`⚠️ Device ${deviceId} error: ${error}`);
+    return;
+  }
 
-    if (typeof lat === "number" && typeof lng === "number") {
-      const device = updateLocation(deviceId, lat, lng);
-      console.log(`📍 Location update from ${deviceId}:`, device.location);
-    } else {
-      console.warn(`⚠️ Invalid location payload from ${deviceId}:`, data);
-    }
-  });
+  // Ép kiểu lat/lng sang number
+  const lat = Number(data.lat);
+  const lng = Number(data.lng);
+
+  if (!isNaN(lat) && !isNaN(lng)) {
+    const device = updateLocation(deviceId, lat, lng);
+    console.log(`📍 Location update from ${deviceId}:`, device.location);
+  } else {
+    console.warn(`⚠️ Invalid location payload from ${deviceId}:`, data);
+  }
+});
+
 
   socket.on("disconnect", () => {
     console.log("❌ User disconnected:", socket.id);
